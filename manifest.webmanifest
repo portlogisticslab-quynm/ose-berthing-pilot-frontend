@@ -1,0 +1,9 @@
+{
+  "name": "Berthing AI Pilot",
+  "short_name": "Berthing Pilot",
+  "start_url": "./#/live",
+  "display": "standalone",
+  "background_color": "#0b1f33",
+  "theme_color": "#0b1f33",
+  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1b24">
+  <title>Berthing AI Pilot – Live Berthing</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="config.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <section id="login" class="login" hidden>
+    <form id="login-form" autocomplete="on">
+      <h1>Berthing AI Pilot</h1>
+      <p>Theo dõi tàu cập bến bằng số liệu cảm biến BRT</p>
+      <label for="em">Email</label>
+      <input id="em" name="email" type="email" required autocomplete="username">
+      <label for="pw">Mật khẩu</label>
+      <input id="pw" name="password" type="password" required autocomplete="current-password">
+      <button type="submit">Đăng nhập</button>
+      <p id="login-error" class="err" role="alert" hidden></p>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <header class="top">
+      <span class="brand">Berthing AI <b>Pilot</b></span>
+      <nav role="tablist" aria-label="Màn hình">
+        <button data-tab="live" role="tab" aria-selected="true">Live Berthing</button>
+        <button data-tab="dashboard" role="tab" aria-selected="false">Dashboard</button>
+        <button data-tab="pilot" role="tab" aria-selected="false">Hoa tiêu</button>
+        <button data-tab="events" role="tab" aria-selected="false">Lượt cập</button>
+        <button data-tab="models" role="tab" aria-selected="false" data-role="engineer">Mô hình</button>
+        <button data-tab="shm" role="tab" aria-selected="false" data-role="engineer">Port-SHM</button>
+        <button data-tab="kpi" role="tab" aria-selected="false">KPI</button>
+      </nav>
+      <label class="sel">Bến <select id="berth" aria-label="Chọn bến"></select></label>
+      <span class="seg" role="radiogroup" aria-label="Nguồn số liệu">
+        <button data-source="live" role="radio" aria-checked="true">Số liệu thật</button>
+        <button data-source="sim" role="radio" aria-checked="false">Giả lập</button>
+      </span>
+      <button id="sim-open" class="simbtn" data-role="engineer" aria-expanded="false" aria-controls="sim-pop">▶ Chạy giả lập</button>
+      <span class="sp"></span>
+      <span id="conn" class="conn" data-state="off" role="status">Chưa kết nối</span>
+      <span id="who" class="who"></span>
+      <button id="logout" class="ghost">Đăng xuất</button>
+    </header>
+    <div id="sim-pop" class="simpop" role="dialog" aria-label="Chạy giả lập" hidden>
+      <form id="sim-form">
+        <h3>Chạy giả lập <span class="muted">bến <b id="sim-berth"></b></span></h3>
+        <label>Số lượt cập <select name="events"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></label>
+        <label>Tốc độ <select name="speed"><option value="1">1× (thời gian thực)</option><option value="5" selected>5×</option><option value="20">20×</option><option value="0">Nhanh nhất (xem lại ở tab Lượt cập)</option></select></label>
+        <label class="chk"><input type="checkbox" name="dropout"> Có đoạn mất tín hiệu BRT-N2</label>
+        <div class="row"><button class="btn primary" type="submit">Bắt đầu</button><button class="btn" type="button" id="sim-close">Đóng</button></div>
+        <p class="note">Số liệu sinh bằng mô hình của 3.6.5, gửi qua đúng đường nhận số liệu của gateway (nguồn "Giả lập"), không lẫn với số liệu thật. Mỗi bến chạy một lần giả lập tại một thời điểm.</p>
+      </form>
+      <div id="sim-jobs"></div>
+    </div>
+    <div id="sim-banner" class="banner sim" hidden>GIẢ LẬP – số liệu do bộ giả lập sinh ra, không phải số đo tại bến</div>
+    <div id="stale" class="banner stale" hidden>SỐ LIỆU CŨ – quá 3 giây chưa nhận được khung mới từ bến</div>
+
+    <main id="tab-live" class="live">
+      <div class="col">
+        <section class="panel">
+          <h2>Sơ đồ mặt bằng <span class="tag">khoảng cách và góc đo được</span></h2>
+          <div class="planwrap"><canvas id="plan" class="plan" aria-label="Sơ đồ tàu và mép bến"></canvas><p id="empty" class="emptyplan">Chưa có tàu trong tầm BRT</p></div>
+        </section>
+        <section class="panel"><div id="readouts" class="readouts"></div></section>
+        <section class="panel">
+          <h2>Khoảng cách theo thời gian <span class="tag">đo</span></h2>
+          <canvas id="c-dist" class="chart"></canvas>
+          <div class="legend"><span class="k-ink">N1</span><span class="k-ink dash">N2</span></div>
+        </section>
+        <section class="panel">
+          <h2>Vận tốc theo khoảng cách <span class="tag">đo, ước lượng, giới hạn</span></h2>
+          <canvas id="c-vel" class="chart"></canvas>
+          <div class="legend"><span class="k-ink">Đo (lớn nhất của N1, N2)</span><span class="k-chart dash">Ước lượng Kalman</span><span class="k-bad">Vận tốc cho phép</span><span class="k-warn dash">Ngưỡng chú ý</span></div>
+        </section>
+      </div>
+      <div class="col">
+        <section id="event" class="panel"></section>
+        <section class="panel">
+          <h2>Vận tốc khi chạm <span class="tag">dự báo</span></h2>
+          <canvas id="c-vc" class="chart"></canvas>
+          <div class="legend"><span class="k-chart">P50</span><span class="k-chart band">P10–P90</span><span class="k-axis dash">Vận tốc cập thiết kế</span></div>
+        </section>
+        <section class="panel">
+          <h2>Xác suất vượt chuyển vị cho phép <span class="tag">dự báo</span></h2>
+          <canvas id="c-p" class="chart"></canvas>
+          <div class="legend"><span class="k-chart">P(δ ≥ δ giới hạn)</span><span class="k-bad">Ngưỡng cảnh báo P*</span></div>
+        </section>
+        <section class="panel"><h2>Cảnh báo đang mở</h2><ul id="alerts" class="alerts"></ul></section>
+        <section class="panel"><h2>Gateway và thiết bị</h2><ul id="gateways" class="gws"></ul></section>
+        <p class="note">Quy ước: <b>đo</b> là số đọc của cảm biến; góc <b>tính</b> từ hai khoảng cách; <b>ước lượng</b> là kết quả lọc Kalman;
+          <b>dự báo</b> là kết quả mô hình kèm khoảng P10–P90. Dự báo chỉ để tham khảo trong giai đoạn chạy song song.</p>
+      </div>
+    </main>
+
+    <section id="tab-dashboard" class="tabpage dash" hidden></section>
+    <section id="tab-events" class="tabpage" hidden></section>
+    <section id="tab-models" class="tabpage" hidden></section>
+    <section id="tab-shm" class="tabpage" hidden></section>
+    <section id="tab-kpi" class="tabpage" hidden></section>
+
+    <section id="tab-pilot" hidden>
+      <div id="pilot-screen" class="pilot" data-level="none">
+        <div class="bar"><span id="p-event"></span><span class="sp"></span><span id="p-age"></span>
+          <button id="p-sound" aria-pressed="false">Bật âm báo</button><button id="p-full">Toàn màn hình</button></div>
+        <div class="big">
+          <div><div class="k">Khoảng cách</div><div class="v" id="p-d">–</div><div class="u">m</div></div>
+          <div><div class="k">Vận tốc</div><div class="v" id="p-v">–</div><div class="u">cm/s</div></div>
+          <div><div class="k">Góc</div><div class="v" id="p-a">–</div><div class="u">độ</div></div>
+        </div>
+        <div class="msg" id="p-msg"></div>
+        <div class="foot" id="p-allow"></div>
+      </div>
+    </section>
+  </div>
+  <noscript>Trang này cần JavaScript.</noscript>
+</body>
+</html>
