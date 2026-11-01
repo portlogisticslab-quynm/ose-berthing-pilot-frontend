@@ -8,6 +8,7 @@ import { modelsTab } from './models.js';
 import { shmTab } from './shm.js';
 import { gatewaysTab } from './gateways.js';
 import { berthCfgTab } from './berthcfg.js';
+import { createDiag } from './diag.js';
 import { kpiTab } from './kpi.js';
 import { drawPlan, num } from './plan.js';
 
@@ -56,6 +57,7 @@ async function enterApp() {
   sim ??= simPanel({ api, store, onStarted: () => { if (store.source !== 'sim') setSource('sim', true); if (!['live', 'dashboard', 'pilot'].includes(store.tab)) setTab('live'); } });
   setSource(pref.get('source', 'live'), false);
   setTab(new URLSearchParams(location.search).get('tab') ?? pref.get('tab', 'live'));
+  diag ??= createDiag();
   await connect();
 }
 
@@ -91,6 +93,7 @@ function setSource(src, reconnect) {
 }
 const TABS = ['live', 'dashboard', 'pilot', 'events', 'models', 'shm', 'config', 'gateways', 'kpi'];
 let sim = null;
+let diag = null;   // ?diag=1: đo đường truyền trên thiết bị này
 const pages = {};
 function setTab(t) {
   const allowed = (x) => !['models', 'shm', 'config', 'gateways'].includes(x) || ROLES.indexOf(store.user?.role) >= ROLES.indexOf('engineer');
@@ -111,7 +114,7 @@ async function connect() {
   stopStream();
   await loadSnapshot();
   stopFn = api.stream(`/v1/stream/berths/${encodeURIComponent(store.berth)}?source=${store.source}`, {
-    state: (s, info) => { const c = $('conn'); c.dataset.state = s; c.textContent = s === 'on' ? 'Đang nhận số liệu' : s === 'retry' ? (info ?? 'Đang nối lại') : (info ?? 'Ngắt kết nối'); },
+    state: (s, info) => { diag?.state(s); const c = $('conn'); c.dataset.state = s; c.textContent = s === 'on' ? 'Đang nhận số liệu' : s === 'retry' ? (info ?? 'Đang nối lại') : (info ?? 'Ngắt kết nối'); },
     message: onMessage,
   });
 }
@@ -131,7 +134,7 @@ function reloadSoon(ms = 800) { if (snapTimer) return; snapTimer = setTimeout(()
 
 function onMessage(ev, d) {
   if (ev === 'frame') {
-    store.lastRecv = Date.now();
+    store.lastRecv = Date.now(); diag?.frame(d);
     if (!store.event || d.eventId !== store.event.id) { reloadSoon(300); return; }
     const last = store.frames.at(-1);
     if (last && d.ts <= last.ts) return;

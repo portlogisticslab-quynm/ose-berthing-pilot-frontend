@@ -234,3 +234,9 @@ pre.key { white-space: pre-wrap; word-break: break-all; background: var(--bg); b
 .evpick { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
 .evpick select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; color: var(--ink); max-width: 100%; }
 @media (max-width: 1100px) { header.top nav { max-width: 100%; overflow-x: auto; scrollbar-width: thin; } header.top nav button { white-space: nowrap; flex: none; } }
+
+/* ?diag=1 – đo đường truyền */
+.diag { position: fixed; right: 10px; bottom: 10px; z-index: 50; max-width: min(340px, calc(100vw - 20px)); background: #0a141bf2; border: 1px solid var(--chart); border-radius: 10px; padding: 10px 12px; font-size: 13px; box-shadow: 0 6px 20px #0008; }
+.diag h3 { margin: 0 0 6px; font-size: 14px; } .diag p { margin: 6px 0; color: var(--muted); font-size: 12px; }
+.diag table { width: 100%; border-collapse: collapse; } .diag th, .diag td { text-align: right; padding: 2px 6px; font-variant-numeric: tabular-nums; } .diag td:first-child { text-align: left; color: var(--muted); }
+.diag .row { display: flex; flex-wrap: wrap; gap: 6px; }
