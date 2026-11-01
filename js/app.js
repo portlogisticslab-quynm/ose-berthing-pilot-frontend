@@ -71,6 +71,8 @@ function bindUi() {
     finally { btn.disabled = false; }
   });
   $('logout').addEventListener('click', async () => { stopStream(); sim?.close(); await api.logout(); showLogin(); });
+  // cấu hình bến vừa áp dụng ở tab Cấu hình bến → tải lại ảnh chụp (biên dạng vận tốc cho Live, Dashboard)
+  window.addEventListener('pilot:config-activated', (e) => { if (e.detail?.berth === store.berth) loadSnapshot(); });
   $('berth').addEventListener('change', (e) => { store.berth = e.target.value; pref.set('berth', store.berth); for (const p of Object.values(pages)) p.reset?.(); connect(); if (pages[store.tab]) pages[store.tab].show(); });
   document.querySelectorAll('[data-source]').forEach((b) => b.addEventListener('click', () => setSource(b.dataset.source, true)));
   document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));

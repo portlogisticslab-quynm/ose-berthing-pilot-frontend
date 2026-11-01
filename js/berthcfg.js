@@ -166,7 +166,7 @@ export function berthCfgTab({ api, store, root }) {
       const v = Number(tr.dataset.v), c = list.find((x) => x.version === v), base = `/v1/berths/${encodeURIComponent(store.berth)}/configs/${v}`;
       tr.querySelector('[data-load]').onclick = () => { form = { ...fromCfg(c), notes: c.status === 'active' ? '' : (c.notes ?? '') }; say(`Đã nạp tham số của bản v${v} vào trình sửa.`); root.scrollTo?.(0, 0); window.scrollTo(0, 0); };
       const ap = tr.querySelector('[data-approve]'); if (ap) ap.onclick = async () => { try { await api.post(base + '/approve', {}); await load(); say(`Đã phê duyệt bản v${v}. Bấm "Áp dụng" khi sẵn sàng.`); } catch (err) { say(err.message, true); } };
-      const ac = tr.querySelector('[data-activate]'); if (ac) ac.onclick = async () => { try { await api.post(base + '/activate', {}); form = null; await load(); say(`Bản v${v} đang áp dụng cho bến ${store.berth}. Gateway nhận trong vòng 5 phút; giao diện Live dùng biên dạng mới sau khi tải lại trang.`); } catch (err) { say(err.message, true); } };
+      const ac = tr.querySelector('[data-activate]'); if (ac) ac.onclick = async () => { try { await api.post(base + '/activate', {}); form = null; await load(); window.dispatchEvent(new CustomEvent('pilot:config-activated', { detail: { berth: store.berth, version: v } })); say(`Bản v${v} đang áp dụng cho bến ${store.berth}. Gateway nhận trong vòng 5 phút; Live và Dashboard đã chuyển sang biên dạng mới (máy khác: tải lại trang).`); } catch (err) { say(err.message, true); } };
       const dl = tr.querySelector('[data-del]'); if (dl) dl.onclick = async () => { try { await api.req('DELETE', base); await load(); say(`Đã xoá bản nháp v${v}.`); } catch (err) { say(err.message, true); } };
     });
   }
