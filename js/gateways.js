@@ -15,6 +15,12 @@ export function gatewaysTab({ api, store, root }) {
   const tl = (iso) => (iso ? new Date(iso).toLocaleString('vi-VN', { hour12: false }) : '–');
   const ago = (iso) => { if (!iso) return 'chưa có'; const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000); return s < 90 ? `${Math.round(s)} s trước` : s < 5400 ? `${Math.round(s / 60)} phút trước` : s < 172800 ? `${num(s / 3600, 1)} giờ trước` : `${Math.round(s / 86400)} ngày trước`; };
   const say = (m, b = false) => { msg = m; bad = b; render(); };
+  // Hàng đợi là ảnh chụp lúc gửi nhịp sống: tuổi khung cũ nhất tính tại thời điểm đó, không so với giờ hiện tại
+  const qAge = (g) => {
+    const t = Date.parse(g.queue.oldest_ts), hb = Date.parse(g.hb_ts ?? '');
+    const at = new Date(t).toLocaleTimeString('vi-VN', { hour12: false });
+    return Number.isFinite(hb) ? `khung cũ nhất ${at} (chờ ${Math.max(0, Math.round((hb - t) / 1000))} s lúc gửi nhịp sống)` : `khung cũ nhất ${at}`;
+  };
 
   async function load() {
     list = await api.get('/v1/gateways');
@@ -61,7 +67,7 @@ export function gatewaysTab({ api, store, root }) {
         <td><button class="link" data-open><b>${esc(g.code)}</b></button><br><span class="muted">${KIND_VN[g.kind] ?? g.kind} · ${esc((g.berths ?? []).join(', '))}${g.agent_version ? ` · agent ${esc(g.agent_version)}` : ''}</span>${g.note ? `<br><span class="muted">${esc(g.note)}</span>` : ''}</td>
         <td>${!g.active ? '<span class="pill">Đã tắt</span>' : g.online ? '<span class="pill on">Trực tuyến</span>' : g.last_seen_at ? '<span class="pill bad">Mất liên lạc</span>' : '<span class="pill">Chưa kết nối</span>'}<br><span class="muted">nhịp sống ${ago(g.last_seen_at)}</span></td>
         <td>${devs(g)}</td>
-        <td>${g.queue ? `${g.queue.pending} khung${g.queue.pending && g.queue.oldest_ts ? `<br><span class="muted">cũ nhất ${ago(g.queue.oldest_ts)}</span>` : ''}` : '–'}</td>
+        <td>${g.queue ? `${g.queue.pending} khung${g.queue.pending && g.queue.oldest_ts ? `<br><span class="muted">${qAge(g)}</span>` : ''}` : '–'}</td>
         <td>${g.clock ? (g.clock.gnss_lock ? `khoá GNSS<br><span class="muted">lệch ${num(g.clock.offset_ms, 1)} ms</span>` : '<span class="bad">chưa khoá GNSS</span>') : '–'}</td>
         <td>${led(g)}</td>
         <td class="r ${g.rejects_24h ? 'bad' : ''}">${g.rejects_24h}</td>
