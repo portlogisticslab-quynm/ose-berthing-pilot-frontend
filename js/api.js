@@ -8,7 +8,7 @@ export function apiBase() {
 }
 
 export class ApiError extends Error {
-  constructor(status, body) { super(body?.error?.message ?? `HTTP ${status}`); this.status = status; this.code = body?.error?.code; }
+  constructor(status, body) { super(body?.error?.message ?? `HTTP ${status}`); this.status = status; this.code = body?.error?.code; this.details = body?.error?.details ?? []; }
 }
 
 export class Api {

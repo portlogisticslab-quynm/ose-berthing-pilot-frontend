@@ -208,3 +208,29 @@ pre.key { white-space: pre-wrap; word-break: break-all; background: var(--bg); b
 .formrow label { font-size: 13px; color: var(--muted); display: inline-flex; flex-direction: column; gap: 4px; }
 .formrow input, .formrow select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; color: var(--ink); }
 .lvl { font-weight: 600; } .lvl.green { color: var(--ok); } .lvl.yellow { color: var(--warn); } .lvl.red { color: var(--bad); } .lvl.white { color: var(--ink); }
+
+/* M7 – tab Cấu hình bến */
+.bcgrid { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 12px; margin-bottom: 12px; }
+@media (max-width: 900px) { .bcgrid { grid-template-columns: minmax(0, 1fr); } }
+.bcform { display: flex; flex-direction: column; gap: 10px; }
+.bcform label { display: grid; grid-template-columns: minmax(0, 1fr) 92px; grid-template-areas: "t i" "u u" "h h"; gap: 2px 8px; font-size: 13.5px; }
+.bcform label > span { grid-area: t; align-self: center; } .bcform label > input { grid-area: i; }
+.bcform label > em { grid-area: u; font-style: normal; color: var(--muted); font-size: 12px; } .bcform label > small { grid-area: h; color: var(--muted); font-size: 12px; }
+.bcform label.wide { grid-template-columns: minmax(0, 1fr); grid-template-areas: "t" "i"; } .bcform label.wide > input { width: 100%; }
+.bcform input { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; color: var(--ink); text-align: right; }
+.bcform label.wide input { text-align: left; }
+.bcform .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.formula { font-size: 15px; margin: 4px 0 12px; padding: 8px 10px; background: var(--panel2); border-radius: 6px; }
+.bcchart { width: 100%; height: auto; display: block; }
+.bcchart .grid { stroke: var(--line); stroke-width: 1; } .bcchart .ax { fill: var(--muted); font-size: 11px; }
+.bcchart .new { fill: none; stroke: var(--bad); stroke-width: 2.2; } .bcchart .yel { fill: none; stroke: var(--warn); stroke-width: 1.6; stroke-dasharray: 6 4; }
+.bcchart .cur { fill: none; stroke: var(--concrete); stroke-width: 1.6; stroke-dasharray: 3 3; }
+.bcchart .pt.green { fill: var(--ok); } .bcchart .pt.yellow { fill: var(--warn); } .bcchart .pt.red { fill: var(--bad); }
+.bcchart .clip { fill: var(--muted); font-size: 11px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); margin: 4px 0 10px; }
+.lg::before { content: ''; display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 6px; border-top: 2px solid; }
+.lg.new::before { border-color: var(--bad); } .lg.yel::before { border-top-style: dashed; border-color: var(--warn); } .lg.cur::before { border-top-style: dotted; border-color: var(--concrete); }
+.lg.pts::before { width: 8px; height: 8px; border: 0; border-radius: 50%; background: linear-gradient(90deg, var(--ok) 33%, var(--warn) 33% 66%, var(--bad) 66%); }
+.evpick { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.evpick select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; color: var(--ink); max-width: 100%; }
+@media (max-width: 1100px) { header.top nav { max-width: 100%; overflow-x: auto; scrollbar-width: thin; } header.top nav button { white-space: nowrap; flex: none; } }
