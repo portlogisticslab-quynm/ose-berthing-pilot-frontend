@@ -39,6 +39,7 @@
         <button data-tab="config" role="tab" aria-selected="false" data-role="engineer">Cấu hình bến</button>
         <button data-tab="gateways" role="tab" aria-selected="false" data-role="engineer">Gateway</button>
         <button data-tab="kpi" role="tab" aria-selected="false">KPI</button>
+        <button data-tab="users" role="tab" aria-selected="false" data-role="admin">Người dùng</button>
       </nav>
       <label class="sel">Bến <select id="berth" aria-label="Chọn bến"></select></label>
       <span class="seg" role="radiogroup" aria-label="Nguồn số liệu">
@@ -50,8 +51,22 @@
       <span id="conn" class="conn" data-state="off" role="status">Chưa kết nối</span>
       <span id="who" class="who"></span>
       <button id="login-open" class="ghost" hidden>Đăng nhập</button>
+      <button id="pw-open" class="ghost">Đổi mật khẩu</button>
       <button id="logout" class="ghost">Đăng xuất</button>
     </header>
+    <dialog id="pw-dlg" class="pwdlg" aria-labelledby="pw-title">
+      <form id="pw-form" autocomplete="on">
+        <h3 id="pw-title">Đổi mật khẩu</h3>
+        <p id="pw-force" class="note warnbox" hidden>Bạn đang dùng mật khẩu tạm do quản trị cấp. Hãy đặt mật khẩu riêng; trước khi đổi bạn chỉ xem được.</p>
+        <input type="email" name="username" autocomplete="username" hidden>
+        <label>Mật khẩu hiện tại <input name="current_password" type="password" required autocomplete="current-password"></label>
+        <label>Mật khẩu mới <input name="new_password" type="password" required minlength="12" autocomplete="new-password"></label>
+        <label>Nhập lại mật khẩu mới <input name="confirm" type="password" required minlength="12" autocomplete="new-password"></label>
+        <p class="note">Tối thiểu 12 ký tự, ít nhất 5 ký tự khác nhau. Nên dùng một cụm từ dễ nhớ, không dùng lại mật khẩu của app khác. Đổi xong, các phiên đăng nhập trên máy khác bị đăng xuất.</p>
+        <p id="pw-err" class="msg bad" role="alert" hidden></p>
+        <div class="row"><button class="btn primary" type="submit">Đổi mật khẩu</button><button class="btn" type="button" id="pw-cancel">Để sau</button></div>
+      </form>
+    </dialog>
     <div id="sim-pop" class="simpop" role="dialog" aria-label="Chạy giả lập" hidden>
       <form id="sim-form">
         <h3>Chạy giả lập <span class="muted">bến <b id="sim-berth"></b></span></h3>
@@ -111,6 +126,7 @@
     <section id="tab-gateways" class="tabpage" hidden></section>
     <section id="tab-config" class="tabpage" hidden></section>
     <section id="tab-kpi" class="tabpage" hidden></section>
+    <section id="tab-users" class="tabpage" hidden></section>
 
     <section id="tab-pilot" hidden>
       <div id="pilot-screen" class="pilot" data-level="none">

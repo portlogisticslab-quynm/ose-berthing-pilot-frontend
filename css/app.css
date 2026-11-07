@@ -244,3 +244,16 @@ pre.key { white-space: pre-wrap; word-break: break-all; background: var(--bg); b
 .login .guest { margin-top: 10px; width: 100%; background: transparent; color: var(--chart); border: 1px solid currentColor; }
 .simpop .link, .note .link { background: none; border: 0; padding: 0; color: var(--chart); text-decoration: underline; cursor: pointer; font: inherit; }
 .who { cursor: default; }
+
+/* M7.8: đổi mật khẩu, người dùng */
+dialog.pwdlg { width: min(420px, calc(100vw - 32px)); background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+dialog.pwdlg::backdrop { background: rgba(5, 12, 17, .65); }
+.pwdlg form { display: flex; flex-direction: column; gap: 10px; } .pwdlg h3 { margin: 0; font-size: 17px; }
+.pwdlg label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.pwdlg input { padding: 9px 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; color: var(--ink); }
+.pwdlg .row { display: flex; gap: 8px; }
+.note.warnbox { background: #2a2210; border: 1px solid var(--warn); border-radius: 8px; padding: 8px 10px; color: #f5d58f; }
+.toast { position: fixed; z-index: 50; left: 50%; bottom: 24px; transform: translateX(-50%); background: #12301f; color: #9fe0bd; border: 1px solid var(--ok); border-radius: 8px; padding: 10px 16px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.4); max-width: calc(100vw - 32px); }
+.tbl.users select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; color: var(--ink); }
+.formrow label.chk { flex-direction: row; align-items: center; padding-bottom: 6px; }
+.formrow input, .formrow select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; color: var(--ink); }

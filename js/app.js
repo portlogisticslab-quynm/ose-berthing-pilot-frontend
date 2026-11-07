@@ -10,6 +10,7 @@ import { gatewaysTab } from './gateways.js';
 import { berthCfgTab } from './berthcfg.js';
 import { createDiag } from './diag.js';
 import { kpiTab } from './kpi.js';
+import { usersTab } from './users.js';
 import { drawPlan, num } from './plan.js';
 
 const CFG = window.PILOT_CONFIG;
@@ -67,7 +68,7 @@ async function enterApp() {
   const name = store.user.full_name && store.user.full_name !== roleVn ? store.user.full_name : store.user.email;   // tài khoản đầu tiên có tên "Quản trị" → hiện email
   $('who').textContent = guest ? 'Khách · chỉ xem' : `${name} · ${roleVn}`;
   $('who').title = guest ? 'Đang xem không cần tài khoản: xem số liệu và chạy giả lập ở bến công khai, không thay đổi được số liệu' : store.user.email;
-  $('logout').hidden = guest; $('login-open').hidden = !guest;
+  $('logout').hidden = guest; $('login-open').hidden = !guest; $('pw-open').hidden = guest;
   $('sim-open').hidden = !(ROLES.indexOf(store.user.role) >= ROLES.indexOf('engineer') && !guest) && !(store.user.public_sim_berths ?? []).length;
   const berths = await api.get('/v1/berths');
   const sel = $('berth'); sel.innerHTML = '';
@@ -75,13 +76,24 @@ async function enterApp() {
   store.berth = berths.find((b) => b.code === pref.get('berth', CFG.defaultBerth ?? ''))?.code ?? berths[0]?.code;
   sel.value = store.berth;
   const ctx = (id) => ({ api, store, root: $(id) });
-  pages.dashboard = dashboardTab(ctx('tab-dashboard')); pages.events = eventsTab(ctx('tab-events')); pages.models = modelsTab(ctx('tab-models')); pages.shm = shmTab(ctx('tab-shm')); pages.gateways = gatewaysTab(ctx('tab-gateways')); pages.config = berthCfgTab(ctx('tab-config')); pages.kpi = kpiTab(ctx('tab-kpi'));
+  pages.dashboard = dashboardTab(ctx('tab-dashboard')); pages.events = eventsTab(ctx('tab-events')); pages.models = modelsTab(ctx('tab-models')); pages.shm = shmTab(ctx('tab-shm')); pages.gateways = gatewaysTab(ctx('tab-gateways')); pages.config = berthCfgTab(ctx('tab-config')); pages.kpi = kpiTab(ctx('tab-kpi')); pages.users = usersTab(ctx('tab-users'));
   document.querySelectorAll('[data-role]').forEach((b) => { b.hidden = ROLES.indexOf(store.user?.role) < ROLES.indexOf(b.dataset.role); });
   sim ??= simPanel({ api, store, onStarted: () => { if (store.source !== 'sim') setSource('sim', true); if (!['live', 'dashboard', 'pilot'].includes(store.tab)) setTab('live'); } });
   setSource(pref.get('source', 'live'), false);
   setTab(new URLSearchParams(location.search).get('tab') ?? pref.get('tab', 'live'));
   diag ??= createDiag();
+  if (store.user.must_change_pw) openPw(true);   // mật khẩu tạm: mời đổi ngay
   await connect();
+}
+
+// ------------------------------------------------------------------ đổi mật khẩu (M7.8)
+function openPw(force = false) {
+  const d = $('pw-dlg'), f = $('pw-form');
+  f.reset(); $('pw-err').hidden = true;
+  $('pw-force').hidden = !force;
+  f.elements.username.value = store.user?.email ?? '';
+  if (!d.open) d.showModal();
+  f.elements.current_password.focus();
 }
 
 function bindUi() {
@@ -93,7 +105,26 @@ function bindUi() {
     catch (e) { const el = $('login-error'); el.hidden = false; el.textContent = e.status === 401 ? 'Sai email hoặc mật khẩu.' : e.message; }
     finally { btn.disabled = false; }
   });
-  $('logout').addEventListener('click', async () => { stopStream(); sim?.close(); await api.logout(); store.user = null; showLogin(); });
+  $('logout').addEventListener('click', async () => { stopStream(); sim?.close(); if ($('pw-dlg').open) $('pw-dlg').close(); await api.logout(); store.user = null; showLogin(); });
+  $('pw-open').addEventListener('click', () => openPw(!!store.user?.must_change_pw));
+  $('pw-cancel').addEventListener('click', () => $('pw-dlg').close());
+  $('pw-form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = ev.target, err = $('pw-err'), btn = f.querySelector('button[type=submit]');
+    const cur = f.elements.current_password.value, nw = f.elements.new_password.value;
+    err.hidden = true;
+    if (nw !== f.elements.confirm.value) { err.textContent = 'Hai lần nhập mật khẩu mới không khớp.'; err.hidden = false; return; }
+    btn.disabled = true;
+    try {
+      await api.post('/v1/auth/password', { current_password: cur, new_password: nw });
+      const was = store.user.must_change_pw;
+      store.user = await api.get('/v1/auth/me');
+      $('pw-dlg').close(); f.reset();
+      flash('Đã đổi mật khẩu.' + (was ? ' Bạn đã dùng được đầy đủ quyền của tài khoản.' : ''));
+      if (was) await enterApp();
+    } catch (e) { err.textContent = e.message; err.hidden = false; }
+    finally { btn.disabled = false; }
+  });
   $('login-open').addEventListener('click', () => { sim?.close(); store.user = null; showLogin(); });
   $('guest-enter').addEventListener('click', async () => { $('login-error').hidden = true; if (!(await enterAsGuest())) showLogin('Máy chủ chưa bật chế độ xem không cần tài khoản.'); });
   // cấu hình bến vừa áp dụng ở tab Cấu hình bến → tải lại ảnh chụp (biên dạng vận tốc cho Live, Dashboard)
@@ -112,18 +143,24 @@ function bindUi() {
   setInterval(tick, 1000);
 }
 
+function flash(text) {
+  const el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); el.textContent = text;
+  document.body.append(el); setTimeout(() => el.remove(), 5000);
+}
+
 function setSource(src, reconnect) {
   store.source = src === 'sim' ? 'sim' : 'live'; pref.set('source', store.source);
   document.querySelectorAll('[data-source]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.source === store.source)));
   $('sim-banner').hidden = store.source !== 'sim';
   if (reconnect) connect();
 }
-const TABS = ['live', 'dashboard', 'pilot', 'events', 'models', 'shm', 'config', 'gateways', 'kpi'];
+const TABS = ['live', 'dashboard', 'pilot', 'events', 'models', 'shm', 'config', 'gateways', 'kpi', 'users'];
 let sim = null;
 let diag = null;   // ?diag=1: đo đường truyền trên thiết bị này
 const pages = {};
 function setTab(t) {
-  const allowed = (x) => !['models', 'shm', 'config', 'gateways'].includes(x) || ROLES.indexOf(store.user?.role) >= ROLES.indexOf('engineer');
+  const lvl = ROLES.indexOf(store.user?.role);
+  const allowed = (x) => (x === 'users' ? lvl >= ROLES.indexOf('admin') : !['models', 'shm', 'config', 'gateways'].includes(x) || lvl >= ROLES.indexOf('engineer'));
   const prev = store.tab;
   store.tab = TABS.includes(t) && allowed(t) ? t : 'live'; pref.set('tab', store.tab);
   document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === store.tab)));
