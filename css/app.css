@@ -269,3 +269,4 @@ dialog.pwdlg::backdrop { background: rgba(5, 12, 17, .65); }
 .panel.okbox h3, .panel.warnbox h3 { margin: 0 0 6px; font-size: 15px; }
 #tab-models details > summary { cursor: pointer; color: var(--muted); }
 #ev-env textarea { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); padding: 8px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+.tr-list td.small { white-space: normal; min-width: 320px; }

@@ -22,6 +22,23 @@ export function modelsTab({ api, store, root }) {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
+  /** Việc chạy nền trên máy chủ (huấn luyện, xuất bộ số liệu): hỏi tiến độ tới khi xong. */
+  async function waitJob(j, onStep) {
+    for (;;) {
+      if (j.status === 'done') return j;
+      if (j.status === 'error') throw new Error(j.error?.message + (j.error?.details?.length ? ': ' + j.error.details.join('; ') : ''));
+      onStep?.(j.step);
+      await new Promise((r) => setTimeout(r, 1200));
+      j = await api.get(`/v1/training/jobs/${j.id}`);
+    }
+  }
+  async function exportDataset(format) {
+    say('Đang chuẩn bị bộ số liệu…');
+    const j = await waitJob(await api.post('/v1/training/dataset', { berth: store.berth, source: tr.source, event_ids: [...tr.picked], format }), (st) => say(`Đang chuẩn bị bộ số liệu: ${st}…`));
+    await download(`/v1/training/jobs/${j.id}/file`, null, `training.${format}`);
+    say(`Đã xuất ${j.result.events} lượt cập${j.result.skipped?.length ? `, bỏ ${j.result.skipped.length} lượt không dùng được` : ''}.`);
+  }
+
   // ---------------------------------------------------------------- huấn luyện trên lượt cập đã ghi
   function trainPanel() {
     const d = tr.data, evs = d?.events ?? [], okN = evs.filter((e) => e.check.ok).length, n = tr.picked.size;
@@ -87,13 +104,15 @@ export function modelsTab({ api, store, root }) {
     q('#tr-all').onchange = (e) => { tr.picked = new Set(e.target.checked ? tr.data.events.filter((x) => x.check.ok).map((x) => x.id) : []); keep(); render(); };
     root.querySelectorAll('[data-pick]').forEach((b) => { b.onchange = () => { if (b.checked) tr.picked.add(b.dataset.pick); else tr.picked.delete(b.dataset.pick); keep(); render(); }; });
     const body = () => ({ berth: store.berth, source: tr.source, event_ids: [...tr.picked] });
-    q('#tr-json').onclick = async () => { try { await download('/v1/training/dataset', { ...body(), format: 'json' }, 'training.json'); } catch (er) { say(er.message, true); } };
-    q('#tr-csv').onclick = async () => { try { await download('/v1/training/dataset', { ...body(), format: 'csv' }, 'training.csv'); } catch (er) { say(er.message, true); } };
+    q('#tr-json').onclick = async () => { try { await exportDataset('json'); } catch (er) { say(er.message, true); } };
+    q('#tr-csv').onclick = async () => { try { await exportDataset('csv'); } catch (er) { say(er.message, true); } };
     q('#tr-run').onclick = async () => {
       keep(); tr.busy = true; tr.result = null; render(); say('Đang huấn luyện và kiểm định…');
       try {
         const synth = tr.synth === '' ? (tr.picked.size < 30 ? 150 : 0) : Number(tr.synth);
-        const r = await api.post('/v1/models/train', { ...body(), test_share: tr.testPct / 100, seed: tr.seed, synth_count: synth, synth_seed: tr.synthSeed, ...(tr.notes ? { notes: tr.notes } : {}) });
+        const j = await waitJob(await api.post('/v1/models/train', { ...body(), test_share: tr.testPct / 100, seed: tr.seed, synth_count: synth, synth_seed: tr.synthSeed, ...(tr.notes ? { notes: tr.notes } : {}) }),
+          (st) => say(`Đang huấn luyện: ${st}…`));
+        const r = j.result;
         tr.result = r; sel = await api.get(`/v1/models/${r.id}`); await load(); say(`Đã tạo mô hình ${r.version}.`);
       } catch (er) { say(er.message, true); }
       finally { tr.busy = false; render(); }
