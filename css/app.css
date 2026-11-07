@@ -257,3 +257,15 @@ dialog.pwdlg::backdrop { background: rgba(5, 12, 17, .65); }
 .tbl.users select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; color: var(--ink); }
 .formrow label.chk { flex-direction: row; align-items: center; padding-bottom: 6px; }
 .formrow input, .formrow select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; color: var(--ink); }
+/* M8: huấn luyện trên số liệu đã ghi */
+.pad-s { margin: var(--gap); }
+.toolbar.wrap { flex-wrap: wrap; row-gap: 8px; }
+.toolbar label.grow { flex: 1 1 220px; display: flex; align-items: center; gap: 6px; } .toolbar label.grow input { flex: 1; min-width: 0; }
+.toolbar label input, .toolbar label select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; color: var(--ink); }
+.tr-list { max-height: 360px; overflow: auto; }
+.tbl tr.off td { opacity: .55; }
+.bad-t { color: #ff9a8a; } .warn-t { color: #f5d58f; }
+.panel.okbox { border-color: var(--ok); } .panel.warnbox { border-color: var(--warn); }
+.panel.okbox h3, .panel.warnbox h3 { margin: 0 0 6px; font-size: 15px; }
+#tab-models details > summary { cursor: pointer; color: var(--muted); }
+#ev-env textarea { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); padding: 8px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }

@@ -116,6 +116,7 @@ export function eventsTab({ api, store, root }) {
           <section class="panel"><h2>Tóm tắt</h2><dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
             ${e.notes ? `<p class="note">${esc(e.notes)}</p>` : ''}</section>
           ${can('operator') && e.status !== 'merged' ? editForm(e) : ''}
+          ${envPanel(e)}
           ${isFinal && e.status !== 'merged' && can('pilot') ? reviewForm(rv) : rv ? reviewView(rv) : ''}
           ${can('operator') && e.status !== 'merged' ? actions(e) : ''}
           ${can('engineer') && e.status !== 'merged' ? replayPanel() : ''}
@@ -125,6 +126,48 @@ export function eventsTab({ api, store, root }) {
       </div>`;
     bindDetail();
     draw(true);
+  }
+
+  // M8: số liệu môi trường của lượt cập; nhập tay khi bến chưa có trạm trên Port-SHM (vận hành trở lên)
+  function envPanel(e) {
+    const env = st.d.env ?? [], src = {};
+    for (const x of env) { const k = x.source_ref ?? (e.source === 'sim' ? 'sim' : '?'); src[k] = (src[k] ?? 0) + 1; }
+    const last = env[env.length - 1];
+    const SRC_VN = { 'port-shm': 'Port-SHM', manual: 'nhập tay', sim: 'bộ giả lập', '?': 'không rõ' };
+    return `<section class="panel"><h2>Số liệu môi trường <span class="tag">${env.length} dòng</span></h2>
+      ${env.length ? `<p class="muted">Nguồn: ${Object.entries(src).map(([k, n]) => `${SRC_VN[k] ?? esc(k)} ${n}`).join(', ')}. Gần nhất ${tLocal(last.ts)}:
+        gió ${num(last.wind_speed_ms, 1)} m/s hướng ${num(last.wind_dir_deg, 0)}°, dòng chảy ${num(last.current_speed_ms, 2)} m/s hướng ${num(last.current_dir_deg, 0)}°,
+        Hs ${num(last.hs_m, 2)} m, mực nước ${num(last.water_level_m, 2)} m.</p>`
+        : '<p class="muted">Chưa có số liệu môi trường: dự báo dùng giá trị mặc định (gió, dòng chảy 0, Hs 0,4 m) và lượt cập này kém giá trị khi huấn luyện mô hình.</p>'}
+      ${can('operator') && e.source !== 'replay' ? `<details><summary>Nhập tay số liệu môi trường</summary><form id="ev-env" class="form">
+        <p class="note">Mỗi dòng một thời điểm, các cột cách nhau bằng dấu phẩy hoặc Tab (dán thẳng từ Excel được):<br>
+          <code>giờ cảng (yyyy-mm-dd hh:mm), gió m/s, hướng gió thổi tới °, dòng chảy m/s, hướng dòng chảy đi °, Hs m, Tp s, mực nước m</code><br>
+          Cột không có thì để trống. Thời điểm trùng với dòng đã có bị bỏ qua.</p>
+        <textarea name="rows" rows="5" placeholder="2026-11-07 10:15, 6.2, 40, 0.3, 200, 0.6, 5, 1.8"></textarea>
+        <div class="row"><button class="btn primary" type="submit">Nhập</button></div></form></details>` : ''}</section>`;
+  }
+  /** "yyyy-mm-dd hh:mm[:ss]" theo giờ của cảng → ISO có múi giờ. */
+  function localToIso(text, zone) {
+    const m = String(text).trim().match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (!m) { const d = Date.parse(text); if (Number.isNaN(d)) throw new Error(`Thời điểm không hợp lệ: ${text}`); return new Date(d).toISOString(); }
+    const guess = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] ?? 0));
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      .formatToParts(new Date(guess)).map((p) => [p.type, p.value]));
+    const asZone = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute, +parts.second);
+    return new Date(guess - (asZone - guess)).toISOString();
+  }
+  function parseEnv(text, zone) {
+    const keys = ['wind_speed_ms', 'wind_dir_deg', 'current_speed_ms', 'current_dir_deg', 'hs_m', 'tp_s', 'water_level_m'];
+    const out = [];
+    String(text).split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^giờ|^time|^ts/i.test(l)).forEach((l, i) => {
+      const c = l.split(/\t|,|;/).map((x) => x.trim());
+      const row = { ts: localToIso(c[0], zone), source_ref: 'manual' };
+      keys.forEach((k, j) => { const v = c[j + 1]; if (v !== undefined && v !== '') { const n = Number(v.replace(',', '.')); if (!Number.isFinite(n)) throw new Error(`Dòng ${i + 1}, cột ${j + 2}: "${v}" không phải số`); row[k] = n; } });
+      out.push(row);
+    });
+    if (!out.length) throw new Error('Chưa có dòng nào');
+    if (out.length > 2000) throw new Error('Tối đa 2000 dòng mỗi lần');
+    return out;
   }
 
   function editForm(e) {
@@ -180,6 +223,16 @@ export function eventsTab({ api, store, root }) {
     const e = st.d.event;
     q('#ev-back').onclick = async () => { stopPlay(); st.view = 'list'; await loadList(); renderList(); };
     root.querySelectorAll('[data-dl]').forEach((b) => (b.onclick = () => download(b.dataset.dl)));
+    const envForm = q('#ev-env');
+    if (envForm) envForm.onsubmit = async (ev) => {
+      ev.preventDefault();
+      const btn = envForm.querySelector('button'); btn.disabled = true;
+      try {
+        const samples = parseEnv(envForm.rows.value, tz());
+        const r = await api.post(`/v1/events/${e.id}/env`, { samples });
+        await openEvent(e.id); say(`Đã nhập ${r.accepted} dòng môi trường${r.duplicates ? `, bỏ ${r.duplicates} dòng trùng thời điểm` : ''}.`);
+      } catch (er) { say(er.message, true); btn.disabled = false; }
+    };
     const slider = q('#ev-slider');
     slider.oninput = () => { st.pos = Number(slider.value); st.idx = Math.floor(st.pos); draw(false); };
     root.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => { st.mode = b.dataset.mode; pref.set('replayMode', st.mode);
