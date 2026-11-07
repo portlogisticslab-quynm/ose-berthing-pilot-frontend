@@ -19,6 +19,7 @@ const LEVEL_VN = { Normal: 'Bình thường', Caution: 'Chú ý', Warning: 'Cả
 const STATUS_VN = { open: 'Đang theo dõi', approach: 'Đang tiếp cận', contact: 'Đã chạm đệm', moored: 'Đã cập', closed: 'Đã đóng', aborted: 'Bỏ dở', merged: 'Đã gộp' };
 const LAYER_VN = { local: 'Tại bến', forecast: 'Dự báo', system: 'Hệ thống' };
 const ROLES = ['viewer', 'pilot', 'operator', 'engineer', 'admin'];
+const ROLE_VN = { viewer: 'Xem', pilot: 'Hoa tiêu', operator: 'Vận hành', engineer: 'Kỹ sư', admin: 'Quản trị' };
 const FINAL = ['closed', 'aborted', 'merged'];
 const MAX_FRAMES = 3600, STALE_MS = 3000;
 
@@ -26,26 +27,48 @@ const store = { user: null, berth: null, source: 'live', tab: 'live', snap: null
 const pref = { get: (k, d) => { try { return localStorage.getItem('pilot.' + k) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem('pilot.' + k, v); } catch { /* bỏ qua */ } } };
 
 // ------------------------------------------------------------------ khởi động
-api.onUnauthorized = () => showLogin('Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.');
+api.onUnauthorized = () => { if (!store.user?.guest) showLogin('Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.'); };
+let publicView = false;   // máy chủ cho xem không cần tài khoản (PUBLIC_VIEW)
 let started = false;
 document.addEventListener('DOMContentLoaded', init);
 if (document.readyState !== 'loading') queueMicrotask(init);   // chạy sau khi toàn bộ mô-đun đã khởi tạo
 async function init() {
   if (started) return; started = true;
   bindUi();
-  if (!api.token) return showLogin();
-  try { store.user = await api.get('/v1/auth/me'); await enterApp(); } catch { showLogin(); }
+  if (api.token) {
+    try { store.user = await api.get('/v1/auth/me'); return await enterApp(); } catch { api.setToken(null); }
+  }
+  // không có phiên đăng nhập: máy chủ bật chế độ xem công khai thì vào thẳng với tư cách khách
+  if (await enterAsGuest()) return;
+  showLogin();
+}
+
+async function enterAsGuest() {
+  try {
+    const g = await api.get('/v1/auth/me');
+    publicView = !!g?.guest;
+    if (!publicView) return false;
+    store.user = g; await enterApp(); return true;
+  } catch { return false; }
 }
 
 function showLogin(msg) {
   stopStream(); api.setToken(null);
   $('app').hidden = true; $('sim-banner').hidden = true; $('login').hidden = false;
   const e = $('login-error'); e.hidden = !msg; e.textContent = msg ?? '';
+  $('guest-enter').hidden = !publicView;
 }
 
 async function enterApp() {
   $('login').hidden = true; $('app').hidden = false;
-  $('who').textContent = `${store.user.full_name || store.user.email}`;
+  const guest = !!store.user.guest;
+  // tên + vai trò (chỉ để hiển thị, không phải nút); khách: "Khách · chỉ xem"
+  const roleVn = ROLE_VN[store.user.role] ?? store.user.role;
+  const name = store.user.full_name && store.user.full_name !== roleVn ? store.user.full_name : store.user.email;   // tài khoản đầu tiên có tên "Quản trị" → hiện email
+  $('who').textContent = guest ? 'Khách · chỉ xem' : `${name} · ${roleVn}`;
+  $('who').title = guest ? 'Đang xem không cần tài khoản: xem số liệu và chạy giả lập ở bến công khai, không thay đổi được số liệu' : store.user.email;
+  $('logout').hidden = guest; $('login-open').hidden = !guest;
+  $('sim-open').hidden = !(ROLES.indexOf(store.user.role) >= ROLES.indexOf('engineer') && !guest) && !(store.user.public_sim_berths ?? []).length;
   const berths = await api.get('/v1/berths');
   const sel = $('berth'); sel.innerHTML = '';
   for (const b of berths) sel.append(new Option(`${b.code} – ${b.name}`, b.code));
@@ -70,7 +93,9 @@ function bindUi() {
     catch (e) { const el = $('login-error'); el.hidden = false; el.textContent = e.status === 401 ? 'Sai email hoặc mật khẩu.' : e.message; }
     finally { btn.disabled = false; }
   });
-  $('logout').addEventListener('click', async () => { stopStream(); sim?.close(); await api.logout(); showLogin(); });
+  $('logout').addEventListener('click', async () => { stopStream(); sim?.close(); await api.logout(); store.user = null; showLogin(); });
+  $('login-open').addEventListener('click', () => { sim?.close(); store.user = null; showLogin(); });
+  $('guest-enter').addEventListener('click', async () => { $('login-error').hidden = true; if (!(await enterAsGuest())) showLogin('Máy chủ chưa bật chế độ xem không cần tài khoản.'); });
   // cấu hình bến vừa áp dụng ở tab Cấu hình bến → tải lại ảnh chụp (biên dạng vận tốc cho Live, Dashboard)
   window.addEventListener('pilot:config-activated', (e) => { if (e.detail?.berth === store.berth) loadSnapshot(); });
   $('berth').addEventListener('change', (e) => { store.berth = e.target.value; pref.set('berth', store.berth); for (const p of Object.values(pages)) p.reset?.(); connect(); if (pages[store.tab]) pages[store.tab].show(); });

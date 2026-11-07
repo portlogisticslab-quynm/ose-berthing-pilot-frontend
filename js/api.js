@@ -52,7 +52,8 @@ export class Api {
       while (!stopped) {
         ac = new AbortController();
         try {
-          const h = { Authorization: 'Bearer ' + this.token, Accept: 'text/event-stream' };
+          const h = { Accept: 'text/event-stream' };
+          if (this.token) h.Authorization = 'Bearer ' + this.token;
           if (lastId) h['Last-Event-ID'] = lastId;
           const res = await fetch(this.base + path, { headers: h, signal: ac.signal, cache: 'no-store' });
           if (res.status === 401) { handlers.state('off', 'Phiên đăng nhập hết hạn'); this.onUnauthorized(); return; }

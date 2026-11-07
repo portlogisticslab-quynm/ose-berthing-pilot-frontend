@@ -22,6 +22,7 @@
       <input id="pw" name="password" type="password" required autocomplete="current-password">
       <button type="submit">Đăng nhập</button>
       <p id="login-error" class="err" role="alert" hidden></p>
+      <button type="button" id="guest-enter" class="guest" hidden>Xem không cần tài khoản (chỉ xem, chạy giả lập)</button>
     </form>
   </section>
 
@@ -44,18 +45,20 @@
         <button data-source="live" role="radio" aria-checked="true">Số liệu thật</button>
         <button data-source="sim" role="radio" aria-checked="false">Giả lập</button>
       </span>
-      <button id="sim-open" class="simbtn" data-role="engineer" aria-expanded="false" aria-controls="sim-pop">▶ Chạy giả lập</button>
+      <button id="sim-open" class="simbtn" hidden aria-expanded="false" aria-controls="sim-pop">▶ Chạy giả lập</button>
       <span class="sp"></span>
       <span id="conn" class="conn" data-state="off" role="status">Chưa kết nối</span>
       <span id="who" class="who"></span>
+      <button id="login-open" class="ghost" hidden>Đăng nhập</button>
       <button id="logout" class="ghost">Đăng xuất</button>
     </header>
     <div id="sim-pop" class="simpop" role="dialog" aria-label="Chạy giả lập" hidden>
       <form id="sim-form">
         <h3>Chạy giả lập <span class="muted">bến <b id="sim-berth"></b></span></h3>
-        <label>Số lượt cập <select name="events"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></label>
-        <label>Tốc độ <select name="speed"><option value="1">1× (thời gian thực)</option><option value="5" selected>5×</option><option value="20">20×</option><option value="0">Nhanh nhất (xem lại ở tab Lượt cập)</option></select></label>
+        <label>Số lượt cập <select name="events"><option>1</option><option selected>2</option><option data-full>3</option><option data-full>4</option><option data-full>5</option></select></label>
+        <label>Tốc độ <select name="speed"><option value="1" data-full>1× (thời gian thực)</option><option value="5" selected>5×</option><option value="20">20×</option><option value="0">Nhanh nhất (xem lại ở tab Lượt cập)</option></select></label>
         <label class="chk"><input type="checkbox" name="dropout"> Có đoạn mất tín hiệu BRT-N2</label>
+        <p id="sim-public" class="note" hidden></p>
         <div class="row"><button class="btn primary" type="submit">Bắt đầu</button><button class="btn" type="button" id="sim-close">Đóng</button></div>
         <p class="note">Số liệu sinh bằng mô hình của 3.6.5, gửi qua đúng đường nhận số liệu của gateway (nguồn "Giả lập"), không lẫn với số liệu thật. Mỗi bến chạy một lần giả lập tại một thời điểm.</p>
       </form>

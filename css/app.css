@@ -240,3 +240,7 @@ pre.key { white-space: pre-wrap; word-break: break-all; background: var(--bg); b
 .diag h3 { margin: 0 0 6px; font-size: 14px; } .diag p { margin: 6px 0; color: var(--muted); font-size: 12px; }
 .diag table { width: 100%; border-collapse: collapse; } .diag th, .diag td { text-align: right; padding: 2px 6px; font-variant-numeric: tabular-nums; } .diag td:first-child { text-align: left; color: var(--muted); }
 .diag .row { display: flex; flex-wrap: wrap; gap: 6px; }
+/* M7.7: xem không cần tài khoản */
+.login .guest { margin-top: 10px; width: 100%; background: transparent; color: var(--chart); border: 1px solid currentColor; }
+.simpop .link, .note .link { background: none; border: 0; padding: 0; color: var(--chart); text-decoration: underline; cursor: pointer; font: inherit; }
+.who { cursor: default; }
