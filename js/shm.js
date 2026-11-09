@@ -15,6 +15,16 @@ export function shmTab({ api, store, root }) {
   const say = (m, b = false) => { msg = m; bad = b; render(); };
 
   async function load() { st = await api.get('/v1/integrations/shm'); }
+  /** Lỗi gần nhất: sau lỗi đã gửi được và mọi bến đọc được thì ghi "đã khắc phục" (màu xám) thay vì đỏ. */
+  function lastErr(st) {
+    const e = st.stats?.last_error, at = st.stats?.last_error_at;
+    if (!e) return 'không có';
+    const t = (x) => (x ? Date.parse(x) : 0);
+    const reads = (st.berths ?? []).filter((b) => b.shm_structure_code && b.reading);
+    const fixed = t(st.stats?.last_ok_at) > t(at) && reads.every((b) => b.reading.ok && t(b.reading.at) > t(at));
+    return fixed ? `<span class="muted">${esc(e)} (${ago(at)}) – <b>đã khắc phục</b>: sau đó đã gửi và đọc được bình thường</span>`
+      : `<span class="bad">${esc(e)}</span> <span class="muted">(${ago(at)})</span>`;
+  }
   function reading(r) {
     if (!r) return '<span class="muted">chưa đọc</span>';
     if (!r.ok) return `<span class="bad">Lỗi: ${esc(r.error)}</span> <span class="muted">(${ago(r.at)})</span>`;
@@ -40,7 +50,7 @@ export function shmTab({ api, store, root }) {
           <dt>Chờ FND/DSP sau khi đóng</dt><dd>tối đa ${st.summary_wait_s} s</dd>
           <dt>Lượt cập giả lập</dt><dd>${st.send_sim ? 'gửi, Port-SHM ghi là "mô phỏng"' : 'không gửi'}; phát lại không gửi</dd>
           <dt>Gửi được gần nhất</dt><dd>${tl(st.stats?.last_ok_at)} ${st.stats?.last_ok_at ? `<span class="muted">(${ago(st.stats.last_ok_at)})</span>` : ''}</dd>
-          <dt>Lỗi gần nhất</dt><dd>${st.stats?.last_error ? `<span class="bad">${esc(st.stats.last_error)}</span> <span class="muted">(${ago(st.stats.last_error_at)})</span>` : 'không có'}</dd>`
+          <dt>Lỗi gần nhất</dt><dd>${lastErr(st)}</dd>`
           : `<dt>Lý do tắt</dt><dd class="bad">${esc(st.reason ?? '')}</dd>`}</dl></section>
         <section class="panel"><h2>Hàng đợi gửi đi</h2>
           <table class="tbl sm"><thead><tr><th>Loại</th><th class="r">Chờ gửi</th><th class="r">Đã gửi</th><th class="r">Lỗi</th></tr></thead><tbody>
