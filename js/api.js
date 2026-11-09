@@ -16,10 +16,28 @@ export class Api {
     this.base = base;
     try { this.token = sessionStorage.getItem('pilot.token'); } catch { this.token = null; }
     this.onUnauthorized = () => {};
+    this.onBackup = () => {};          // (true|false): đang / thôi dùng máy dự phòng không biết phiên này
+    this.checking = null;
+  }
+  /**
+   * Gặp 401: chưa đăng xuất ngay – có thể chỉ một yêu cầu lạc sang máy khác khi đổi máy chủ.
+   * Chờ 3 s rồi hỏi lại /v1/auth/me; chỉ khi vẫn 401 mới coi là hết phiên. Trả về true nếu phiên còn.
+   */
+  async sessionAlive() {
+    if (!this.token) return false;
+    this.checking ??= (async () => {
+      await new Promise((r) => setTimeout(r, 3000));
+      try {
+        const r = await fetch(this.base + '/v1/auth/me', { headers: { Authorization: 'Bearer ' + this.token }, cache: 'no-store' });
+        if (r.status === 401) return false;
+        return true;                    // 200, hoặc 503/lỗi mạng (máy chủ đang đổi) – giữ phiên
+      } catch { return true; }
+    })().finally(() => { setTimeout(() => { this.checking = null; }, 0); });
+    return this.checking;
   }
   setToken(t) { this.token = t; try { t ? sessionStorage.setItem('pilot.token', t) : sessionStorage.removeItem('pilot.token'); } catch { /* bỏ qua */ } }
 
-  async req(method, path, body) {
+  async req(method, path, body, retried = false) {
     const h = {};
     if (this.token) h.Authorization = 'Bearer ' + this.token;
     if (body !== undefined) h['Content-Type'] = 'application/json';
@@ -27,8 +45,13 @@ export class Api {
     try { res = await fetch(this.base + path, { method, headers: h, body: body === undefined ? undefined : JSON.stringify(body) }); }
     catch { throw new ApiError(0, { error: { message: 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.' } }); }
     const j = await res.json().catch(() => null);
-    if (res.status === 401 && path !== '/v1/auth/login') this.onUnauthorized();
+    if (res.status === 503 && j?.error?.code === 'BACKUP_SESSION') { this.onBackup(true); throw new ApiError(res.status, j); }
+    if (res.status === 401 && path !== '/v1/auth/login' && this.token) {
+      if (!retried && await this.sessionAlive()) return this.req(method, path, body, true);
+      this.onUnauthorized();
+    }
     if (!res.ok) throw new ApiError(res.status, j);
+    this.onBackup(false);
     return j;
   }
   get(p) { return this.req('GET', p); }
@@ -56,9 +79,13 @@ export class Api {
           if (this.token) h.Authorization = 'Bearer ' + this.token;
           if (lastId) h['Last-Event-ID'] = lastId;
           const res = await fetch(this.base + path, { headers: h, signal: ac.signal, cache: 'no-store' });
-          if (res.status === 401) { handlers.state('off', 'Phiên đăng nhập hết hạn'); this.onUnauthorized(); return; }
+          if (res.status === 401) {
+            if (this.token && await this.sessionAlive()) throw new Error('HTTP 401 tạm thời');
+            handlers.state('off', 'Phiên đăng nhập hết hạn'); this.onUnauthorized(); return;
+          }
+          if (res.status === 503) { const j = await res.json().catch(() => null); if (j?.error?.code === 'BACKUP_SESSION') this.onBackup(true); throw new Error('HTTP 503'); }
           if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
-          handlers.state('on'); lastRx = Date.now();
+          handlers.state('on'); lastRx = Date.now(); this.onBackup(false);
           const rd = res.body.getReader(), dec = new TextDecoder(); let buf = '';
           for (;;) {
             const { value, done } = await rd.read();

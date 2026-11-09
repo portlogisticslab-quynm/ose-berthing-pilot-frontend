@@ -23,7 +23,8 @@ export function dashboardTab({ store, root }) {
         <section class="panel"><h2>Vận tốc theo khoảng cách <span class="tag">đo, dự báo khi chạm</span></h2><canvas id="db-vel" class="chart tall"></canvas>
           <div class="legend"><span class="k-ink">Đo</span><span class="k-bad">Vận tốc cho phép</span><span class="k-chart band">Dự báo P10–P90 khi chạm</span><span class="k-ok pt">Thực tế khi chạm</span></div></section>
         <section class="panel"><h2>Xác suất vượt theo thời gian <span class="tag">dự báo</span></h2><canvas id="db-prob" class="chart tall"></canvas>
-          <div class="legend"><span class="k-warn">P(E ≥ 0,85 Er)</span><span class="k-bad">P(E ≥ Er)</span><span class="k-violet">P(δ bến ≥ giới hạn)</span><span class="k-chart">P(góc ≥ ngưỡng)</span><span class="k-axis dash">P*</span></div></section>
+          <div class="legend" id="db-prob-legend"><span class="k-warn" data-k="eW">P(E ≥ 0,85 Er)</span><span class="k-bad" data-k="eC">P(E ≥ Er)</span><span class="k-violet" data-k="p">P(δ bến ≥ giới hạn)</span><span class="k-chart" data-k="aC">P(góc ≥ ngưỡng)</span><span class="k-axis dash">P*</span></div>
+          <p class="note" id="db-prob-note" hidden></p></section>
         <section class="panel"><h2>Đường đặc trưng đệm <span id="db-ftype" class="tag"></span></h2><canvas id="db-fender" class="chart tall"></canvas>
           <div class="legend"><span class="k-ink">Phản lực – độ nén</span><span class="k-warn dash">Độ nén định mức</span><span class="k-bad pt">Dự báo P50</span><span class="k-pink pt">P90</span><span class="k-ok pt">Thực tế</span><span class="k-violet dash">Nén đo được</span></div></section>
       </div>
@@ -130,6 +131,18 @@ export function dashboardTab({ store, root }) {
     lineChart(q('#db-prob'), { x: xt, y: [0, 100], xFmt: tf, yLabel: '%', empty: fcs.length ? null : 'Chưa có dự báo',
       hlines: b ? [{ y: 100 * b.p_star, color: C.axis, dash: [5, 4] }] : [],
       series: [line('eW', C.warn), line('eC', C.bad), { pts: fcs.map((x) => [t(x), 100 * x.fc.p]), color: '#b388ff', width: 1.8 }, line('aC', C.chart)] });
+    // ghi giá trị cao nhất cả lượt vào chú thích: đường nằm sát 0 % bị trục hoành che, người xem dễ tưởng thiếu số liệu
+    const peak = (k) => fcs.reduce((m, x) => Math.max(m, k === 'p' ? x.fc.p ?? 0 : x.fc.pr?.[k] ?? 0), 0);
+    const zero = [];
+    q('#db-prob-legend')?.querySelectorAll('[data-k]').forEach((el) => {
+      el.dataset.label ??= el.textContent;
+      if (!fcs.length) { el.textContent = el.dataset.label; return; }
+      const v = 100 * peak(el.dataset.k);
+      el.textContent = `${el.dataset.label} · cao nhất ${v < 0.5 ? '0' : num(v, 0)} %`;
+      if (v < 0.5) zero.push(el.dataset.label);
+    });
+    const note = q('#db-prob-note');
+    if (note) { note.hidden = !zero.length; note.textContent = zero.length ? `${zero.join(', ')}: 0 % cả lượt – đường nằm sát trục hoành nên khó thấy.` : ''; }
     // đường đặc trưng đệm
     const F = b?.fender;
     q('#db-ftype').textContent = F ? `${F.type}, Er ${num(F.rated_energy_kj, 0)} kJ, Rr ${num(F.rated_reaction_kn, 0)} kN, H ≈ ${num(F.H, 2)} m` : '';

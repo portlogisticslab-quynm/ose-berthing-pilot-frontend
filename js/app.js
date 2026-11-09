@@ -29,6 +29,17 @@ const pref = { get: (k, d) => { try { return localStorage.getItem('pilot.' + k) 
 
 // ------------------------------------------------------------------ khởi động
 api.onUnauthorized = () => { if (!store.user?.guest) showLogin('Phiên đăng nhập đã hết hạn. Đăng nhập lại để tiếp tục.'); };
+// M8.2: máy chính tạm không trả lời, Worker chuyển sang máy dự phòng (không biết phiên tạo trong ngày) – giữ phiên, báo và chờ
+api.onBackup = (on) => {
+  let el = document.getElementById('backup-banner');
+  if (!on) { if (el) el.hidden = true; return; }
+  if (!el) {
+    el = document.createElement('div'); el.id = 'backup-banner'; el.className = 'backup-banner'; el.setAttribute('role', 'status');
+    el.textContent = 'Máy chủ chính tạm thời không trả lời, đang dùng máy dự phòng (chỉ xem). Phiên đăng nhập vẫn giữ; app tự kết nối lại khi máy chính trả lời.';
+    document.body.prepend(el);
+  }
+  el.hidden = false;
+};
 let publicView = false;   // máy chủ cho xem không cần tài khoản (PUBLIC_VIEW)
 let started = false;
 document.addEventListener('DOMContentLoaded', init);

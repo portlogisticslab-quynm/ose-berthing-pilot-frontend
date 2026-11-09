@@ -270,3 +270,5 @@ dialog.pwdlg::backdrop { background: rgba(5, 12, 17, .65); }
 #tab-models details > summary { cursor: pointer; color: var(--muted); }
 #ev-env textarea { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); padding: 8px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
 .tr-list td.small { white-space: normal; min-width: 320px; }
+/* M8.2: báo đang dùng máy dự phòng */
+.backup-banner { position: sticky; top: 0; z-index: 40; background: #2a2210; color: #f5d58f; border-bottom: 1px solid var(--warn); padding: 8px 16px; font-size: 14px; }

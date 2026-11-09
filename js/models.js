@@ -179,6 +179,29 @@ export function modelsTab({ api, store, root }) {
       } catch (er) { say(er.message, true); } finally { e.target.disabled = false; }
     };
   }
+  /** Tóm tắt luôn hiện ở đầu phần chỉ số: Đạt / Chưa đạt, so sánh mốc 30–100 m (2 BRT) với mô hình đang dùng lúc huấn luyện. */
+  function summaryBox(m) {
+    const sm = m.metrics?.summary;
+    const cm = (o) => (o?.maeVelocity == null || Number.isNaN(o.maeVelocity) ? '–' : num(o.maeVelocity * 100, 2) + ' cm/s');
+    const ag = (o) => (o?.maeAngle == null || Number.isNaN(o.maeAngle) ? '–' : num(o.maeAngle, 2) + '°');
+    const row = (label, o) => `<tr><td>${label}</td><td class="r">${o?.n ?? '–'}</td><td class="r">${cm(o)}</td><td class="r">${pct(o?.coverage80)}</td><td class="r">${ag(o)}</td></tr>`;
+    const head = (band) => `<thead><tr><th>Mốc ${band[0]}–${band[1]} m (2 BRT)</th><th class="r">Số lượt × mốc</th><th class="r">Sai số V chạm</th><th class="r">Độ phủ P10–P90</th><th class="r">Sai số góc</th></tr></thead>`;
+    const t = m.train_set ?? {};
+    if (sm) {
+      return `<section class="panel pad-s ${sm.pass ? 'okbox' : 'warnbox'}"><h3>${sm.pass ? 'Đạt tiêu chí' : 'Chưa đạt tiêu chí'} – ${ST_VN[m.status] ?? m.status}: ${esc(m.version)}</h3>
+        <p>${t.train ?? '–'} lượt huấn luyện${t.synth ? ` + ${t.synth.count} lượt mô phỏng` : ''}, ${t.test ?? '–'} lượt kiểm định · ${t.source === 'live' ? 'lượt cập thật' : t.source === 'sim' ? 'lượt giả lập đã ghi (thử quy trình, không dùng cho bến thật)' : ''} ${esc(t.berth ?? '')}</p>
+        <table class="tbl sm">${head(sm.band)}<tbody>${row('Mô hình này', sm.new)}${sm.current ? row(`Mô hình đang dùng lúc huấn luyện${m.metrics.compare?.version ? ` (${esc(m.metrics.compare.version)})` : ''}`, sm.current) : '<tr><td colspan="5" class="muted">Lúc huấn luyện bến chưa có mô hình đang dùng để so sánh.</td></tr>'}</tbody></table>
+        ${sm.checks?.length ? `<ul>${sm.checks.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : '<p class="muted">Tiêu chí: tập kiểm định ≥ 5 lượt; độ phủ P10–P90 trong 70–90 %; sai số vận tốc không lớn hơn mô hình đang dùng quá 5 %.</p>'}</section>`;
+    }
+    // mô hình cơ sở (mô phỏng) hoặc nhập từ tệp: tự gộp các mốc 30–100 m từ bảng kiểm định
+    const r = (m.metrics?.twoSensors ?? []).filter((x) => x.D >= 30 && x.D <= 100 && x.n > 0);
+    if (!r.length) return '';
+    const n = r.reduce((a, x) => a + x.n, 0), w = (k) => { const ok = r.filter((x) => Number.isFinite(x[k])); const nn = ok.reduce((a, x) => a + x.n, 0); return nn ? ok.reduce((a, x) => a + x[k] * x.n, 0) / nn : null; };
+    const o = { n, maeVelocity: w('maeVelocity'), coverage80: w('coverage80'), maeAngle: w('maeAngle') };
+    return `<section class="panel pad-s"><h3>Tóm tắt – ${ST_VN[m.status] ?? m.status}: ${esc(m.version)}</h3>
+      <p class="muted">${t.synthetic ? `Kiểm định trên ${t.test ?? '–'} lượt mô phỏng (không phải số liệu bến)` : t.imported || !t.source ? 'Mô hình nhập từ tệp: chỉ số do nơi huấn luyện cung cấp' : ''}; chưa có so sánh với mô hình khác.</p>
+      <table class="tbl sm">${head([30, 100])}<tbody>${row('Mô hình này', o)}</tbody></table></section>`;
+  }
   function metrics(m) {
     const rows = (k) => (m.metrics?.[k] ?? []).map((r) => `<tr><td class="r">${r.D}</td><td class="r">${r.n}</td><td class="r">${num(r.maeVelocity * 100, 2)}</td><td class="r">${pct(r.coverage80)}</td>
       <td class="r">${num(r.maeAngle, 2)}</td><td class="r">${pct(r.detection)}</td><td class="r">${pct(r.falseAlarm)}</td></tr>`).join('');
@@ -187,13 +210,12 @@ export function modelsTab({ api, store, root }) {
     const cmpRows = cmp ? (m.metrics.twoSensors ?? []).map((r) => { const c = (cmp.twoSensors ?? []).find((x) => x.D === r.D) ?? {};
       return `<tr><td class="r">${r.D}</td><td class="r">${r.n}</td><td class="r">${num(r.maeVelocity * 100, 2)} / ${num(c.maeVelocity * 100, 2)}</td><td class="r">${pct(r.coverage80)} / ${pct(c.coverage80)}</td><td class="r">${pct(r.detection)} / ${pct(c.detection)}</td></tr>`; }).join('') : '';
     const t = m.train_set ?? {};
-    return `${t.events_test ? `<p class="note pad">Lượt kiểm định: ${t.events_test.map(esc).join(', ')}${t.synth ? ` · trộn ${t.synth.count} lượt mô phỏng (seed ${t.synth.seed}) vào tập huấn luyện` : ''} · chia ${Math.round((t.split?.testShare ?? 0) * 100)} %, seed ${t.split?.seed}.</p>` : ''}
+    return `${summaryBox(m)}${t.events_test ? `<p class="note pad">Lượt kiểm định: ${t.events_test.map(esc).join(', ')}${t.synth ? ` · trộn ${t.synth.count} lượt mô phỏng (seed ${t.synth.seed}) vào tập huấn luyện` : ''} · chia ${Math.round((t.split?.testShare ?? 0) * 100)} %, seed ${t.split?.seed}.</p>` : ''}
       <div class="grid2 pad"><section class="panel"><h2>Kiểm định – 2 BRT <span class="tag">${esc(m.version)}</span></h2><table class="tbl sm">${head}<tbody>${rows('twoSensors')}</tbody></table></section>
       <section class="panel"><h2>Kiểm định – 1 BRT</h2><table class="tbl sm">${head}<tbody>${rows('oneSensor')}</tbody></table></section></div>
       ${cmp ? `<section class="panel pad-s"><h2>So với mô hình đang dùng lúc huấn luyện <span class="tag">${esc(cmp.version)}</span></h2>
         <p class="muted">Cùng tập kiểm định, 2 BRT; mỗi ô: mô hình này / mô hình đang dùng.</p>
         <table class="tbl sm"><thead><tr><th class="r">Mốc (m)</th><th class="r">Số lượt</th><th class="r">Sai số V chạm (cm/s)</th><th class="r">Độ phủ P10–P90</th><th class="r">Phát hiện</th></tr></thead><tbody>${cmpRows}</tbody></table></section>` : ''}
-      ${m.metrics?.summary?.checks?.length ? `<p class="note pad">Chưa đạt: ${m.metrics.summary.checks.map(esc).join('; ')}.</p>` : ''}
       <p class="note pad">${esc(m.notes ?? '')}</p>`;
   }
   return { async show() { try { await load(); render(); } catch (er) { root.innerHTML = `<p class="msg bad">${esc(er.message)}</p>`; } }, hide() {}, reset() { sel = null; } };
