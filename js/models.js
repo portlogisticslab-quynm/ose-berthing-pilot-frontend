@@ -135,11 +135,11 @@ export function modelsTab({ api, store, root }) {
       <p id="md-msg" class="msg ${bad ? 'bad' : 'ok'}" ${msg ? '' : 'hidden'}>${esc(msg)}</p>
       ${trainPanel()}
       <div class="tblwrap"><table class="tbl" id="md-table"><thead><tr><th>#</th><th>Phiên bản</th><th>Trạng thái</th><th>Tập huấn luyện</th><th>Đang dùng tại</th><th>Ngày tạo</th><th></th></tr></thead>
-        <tbody>${list.map((m) => `<tr data-id="${m.id}" class="${sel?.id === m.id ? 'sel' : ''}"><td>${m.id}</td><td><b>${esc(m.code)}</b> ${esc(m.version)}</td><td>${ST_VN[m.status] ?? m.status}</td>
+        <tbody>${list.map((m) => `<tr data-id="${m.id}" class="${sel?.id === m.id ? 'sel' : ''}"><td>${m.id}</td><td><b>${esc(m.code)}</b> ${esc(m.version)}</td><td><span class="st st-${esc(m.status)}">${ST_VN[m.status] ?? esc(m.status)}</span></td>
           <td>${trainSetText(m)}</td>
           <td>${(m.active_on ?? []).join(', ') || '–'}</td><td>${new Date(m.created_at).toLocaleDateString('vi-VN')}</td>
           <td class="acts"><button class="btn sm" data-export="${m.id}" title="Tải tham số mô hình (JSON)">Xuất</button>
-            ${canApprove && ['draft', 'validated'].includes(m.status) ? `<button class="btn sm" data-approve="${m.id}">Phê duyệt</button>` : ''}
+            ${canApprove && ['draft', 'validated'].includes(m.status) ? `<button class="btn sm" data-approve="${m.id}" title="Mở hộp phê duyệt">Phê duyệt…</button>` : ''}
             ${canApprove && ['approved', 'active'].includes(m.status) && !(m.active_on ?? []).includes(store.berth) ? `<button class="btn sm" data-activate="${m.id}">Áp dụng cho ${esc(store.berth)}</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
       ${sel ? metrics(sel) : '<p class="muted pad">Chọn một mô hình để xem chỉ số kiểm định.</p>'}
       <details class="pad"><summary>Mô hình cơ sở huấn luyện trên số liệu mô phỏng</summary>
@@ -153,7 +153,7 @@ export function modelsTab({ api, store, root }) {
       const b = e.target.closest('button');
       try {
         if (b?.dataset.export) { await download(`/v1/models/${b.dataset.export}/export`, null, 'model.json'); return; }
-        if (b?.dataset.approve) { await api.post(`/v1/models/${b.dataset.approve}/approve`, {}); say('Đã phê duyệt.'); }
+        if (b?.dataset.approve) { if (!(await approveDialog(Number(b.dataset.approve)))) return; }
         else if (b?.dataset.activate) { await api.post(`/v1/berths/${encodeURIComponent(store.berth)}/models/${b.dataset.activate}/activate`, {}); say(`Đã áp dụng cho bến ${store.berth}.`); }
         else { const tr2 = e.target.closest('tr[data-id]'); if (!tr2) return; sel = await api.get(`/v1/models/${tr2.dataset.id}`); }
         await load(); render();
@@ -201,6 +201,36 @@ export function modelsTab({ api, store, root }) {
     return `<section class="panel pad-s"><h3>Tóm tắt – ${ST_VN[m.status] ?? m.status}: ${esc(m.version)}</h3>
       <p class="muted">${t.synthetic ? `Kiểm định trên ${t.test ?? '–'} lượt mô phỏng (không phải số liệu bến)` : t.imported || !t.source ? 'Mô hình nhập từ tệp: chỉ số do nơi huấn luyện cung cấp' : ''}; chưa có so sánh với mô hình khác.</p>
       <table class="tbl sm">${head([30, 100])}<tbody>${row('Mô hình này', o)}</tbody></table></section>`;
+  }
+  /** Hộp phê duyệt: mô hình Nháp phải ghi lý do (≥ 10 ký tự), kèm danh sách tiêu chí chưa đạt; Đã kiểm định thì lý do tuỳ chọn. */
+  async function approveDialog(id) {
+    const m = await api.get(`/v1/models/${id}`);
+    const draft = m.status === 'draft', checks = m.metrics?.summary?.checks ?? [], simev = m.train_set?.source === 'sim';
+    const d = document.createElement('dialog'); d.className = 'pwdlg apdlg';
+    d.innerHTML = `<form method="dialog"><h3>Phê duyệt mô hình ${esc(m.version)}</h3>
+      <p><span class="st st-${esc(m.status)}">${ST_VN[m.status]}</span> ${simev ? '<span class="tag">học từ lượt giả lập – chỉ áp dụng được cho bến giả lập</span>' : ''}</p>
+      ${draft ? `<div class="note warnbox"><b>Mô hình này chưa đạt tiêu chí kiểm định.</b>${checks.length ? `<ul>${checks.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ' Không có kết quả kiểm định đạt tiêu chí.'}
+        Chỉ phê duyệt khi đã có căn cứ khác (phát lại, so sánh dự báo trên các lượt điển hình…) và ghi rõ lý do.</div>` : '<p class="muted">Mô hình đã đạt tiêu chí kiểm định. Sau khi phê duyệt, bấm <b>Áp dụng cho bến</b> để dùng.</p>'}
+      <label>Lý do phê duyệt${draft ? ' (bắt buộc, ít nhất 10 ký tự)' : ' (tuỳ chọn)'}<textarea name="reason" rows="3" maxlength="500" ${draft ? 'required minlength="10"' : ''}
+        placeholder="${draft ? 'ví dụ: đã phát lại 5 lượt điển hình, dự báo bám sát; chấp nhận dùng thử ở bến B02' : 'ví dụ: đạt tiêu chí, phát lại 3 lượt mạnh tốt'}"></textarea></label>
+      <p class="msg bad" hidden></p>
+      <div class="row"><button class="btn primary" type="submit">Phê duyệt</button><button class="btn" type="button" data-x>Huỷ</button></div></form>`;
+    document.body.append(d);
+    return new Promise((resolve) => {
+      const done = (v) => { d.close(); d.remove(); resolve(v); };
+      d.querySelector('[data-x]').onclick = () => done(false);
+      d.addEventListener('cancel', (e) => { e.preventDefault(); done(false); });
+      d.querySelector('form').onsubmit = async (e) => {
+        e.preventDefault();
+        const f = e.target, err = f.querySelector('.msg');
+        if (!f.reportValidity()) return;
+        try {
+          await api.post(`/v1/models/${id}/approve`, f.reason.value.trim() ? { reason: f.reason.value.trim() } : {});
+          say(`Đã phê duyệt ${m.version}.`); done(true);
+        } catch (er) { err.textContent = er.message; err.hidden = false; }
+      };
+      d.showModal(); d.querySelector('textarea').focus();
+    });
   }
   function metrics(m) {
     const rows = (k) => (m.metrics?.[k] ?? []).map((r) => `<tr><td class="r">${r.D}</td><td class="r">${r.n}</td><td class="r">${num(r.maeVelocity * 100, 2)}</td><td class="r">${pct(r.coverage80)}</td>
