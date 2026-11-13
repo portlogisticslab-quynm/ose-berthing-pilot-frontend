@@ -10,15 +10,17 @@ const zooms = new WeakMap();   // { k, t } tỷ lệ px/m đang hiển thị c�
  */
 export function drawPlan(cv, st) {
   const { g, w, h } = fit(cv);
+  if (w < 80 || h < 90 || cv.offsetParent === null) return;   // canvas đang ẩn (màn hình đăng nhập, tab khác): không vẽ
   const s = st.spacing || 100, loa = st.loa || 180, beam = st.beam || loa / 6.5, fd = st.fenderDepth ?? 2;
   const f = st.frames.at(-1);
   const side = f ? sideOf(f, s) : null;
   const dMax = side ? Math.max(side.y1, side.y2) : 60;
   const worldW = Math.max(loa * 1.3, s * 1.7, 160), worldH = Math.max(dMax + beam + fd + 25, 70);
-  const target = Math.min((w - 40) / worldW, (h - 70) / worldH);
+  const target = Math.max(0.01, Math.min((w - 40) / worldW, (h - 70) / worldH));
   const prev = zooms.get(cv), now = performance.now();
   const a = prev ? 1 - Math.exp(-Math.min(1000, now - prev.t) / 350) : 1;
-  const k = !prev || matchMedia('(prefers-reduced-motion: reduce)').matches ? target : prev.k + (target - prev.k) * a;
+  let k = !prev || matchMedia('(prefers-reduced-motion: reduce)').matches ? target : prev.k + (target - prev.k) * a;
+  if (!(k > 0) || !Number.isFinite(k)) k = target;
   zooms.set(cv, { k, t: now });
   const ox = w / 2, oy = h - 46;                          // gốc: giữa hai BRT, trên tuyến mặt đệm
   const P = (x, y) => [ox + x * k, oy - y * k];
@@ -30,7 +32,7 @@ export function drawPlan(cv, st) {
   g.strokeStyle = C.axis; g.lineWidth = 2; g.beginPath(); g.moveTo(0, qy); g.lineTo(w, qy); g.stroke();
   const step = 20 * k >= 14 ? 20 : 40, fw = Math.max(4, 3 * k);
   g.fillStyle = '#56656e';
-  for (let x = -Math.ceil(w / 2 / k / step) * step; x * k < w / 2; x += step) { const [px] = P(x, 0); g.fillRect(px - fw / 2, oy, fw, depthPx); }
+  for (let x = -Math.ceil(w / 2 / k / step) * step, n = 0; x * k < w / 2 && n < 500; x += step, n++) { const [px] = P(x, 0); g.fillRect(px - fw / 2, oy, fw, depthPx); }
   g.strokeStyle = 'rgba(141,154,161,0.6)'; g.setLineDash([3, 4]); g.lineWidth = 1; g.beginPath(); g.moveTo(0, oy + 0.5); g.lineTo(w, oy + 0.5); g.stroke(); g.setLineDash([]);
   g.fillStyle = C.axis; g.font = '12px Barlow, system-ui'; g.textAlign = 'left';
   g.fillText('Tuyến mặt đệm', 10, oy - 6);

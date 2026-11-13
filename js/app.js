@@ -252,6 +252,7 @@ let dirty = false, heavy = false, lastHeavy = 0;
 function schedule(full = false) { heavy ||= full; if (dirty) return; dirty = true; requestAnimationFrame(render); }
 function render() {
   dirty = false;
+  if ($('app').hidden) return;          // đang ở màn hình đăng nhập: không vẽ (canvas ẩn)
   const now = performance.now(), doHeavy = heavy || now - lastHeavy > 500;
   if (store.tab === 'live') { renderReadouts(); if (doHeavy) { renderPlan(); renderCharts(); renderSide(); lastHeavy = now; heavy = false; } }
   else if (store.tab === 'dashboard') { pages.dashboard?.render(heavy); heavy = false; }
@@ -298,7 +299,7 @@ function shownFrame() {
 }
 function tweenStep() {
   tw.raf = 0;
-  if (store.tab === 'live' && !document.hidden) renderPlan();
+  if (store.tab === 'live' && !document.hidden && !$('app').hidden) renderPlan();
   if (tw.to && performance.now() - tw.t0 < tw.dur) tw.raf = requestAnimationFrame(tweenStep);
 }
 

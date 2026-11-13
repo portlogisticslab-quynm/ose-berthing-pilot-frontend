@@ -21,7 +21,8 @@ export function fit(cv) {
 function niceTicks(lo, hi, n = 5) {
   const span = hi - lo || 1, step0 = span / n, mag = 10 ** Math.floor(Math.log10(step0));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= step0) ?? 10 * mag;
-  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
+  const out = []; if (!Number.isFinite(lo) || !Number.isFinite(hi) || !(step > 0)) return out;
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9 && out.length < 50; v += step) out.push(+v.toFixed(10));
   return out;
 }
 const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(1)).replace('.', ',');

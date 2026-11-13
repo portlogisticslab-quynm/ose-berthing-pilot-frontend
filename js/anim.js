@@ -72,6 +72,7 @@ function model(o) {
 
 function panel(cv, close, m, zoomBox) {
   const { g, w, h } = fit(cv);
+  if (w < 120 || h < 80 || cv.offsetParent === null) return;
   const { fr, i, f, dd, e, cfg, s, L, B, fd, fc, lvl, done, contactY, env, impact, bow } = m;
   const dNear = Math.max(0, Math.min(...dd));
   // khung nhìn (tỷ lệ đều hai trục)
